@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisador de Chat do WhatsApp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        textarea::-webkit-scrollbar, #results::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track, #results::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        textarea::-webkit-scrollbar-thumb, #results::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        textarea::-webkit-scrollbar-thumb:hover, #results::-webkit-scrollbar-thumb:hover { background: #555; }
+        #results { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-5xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8 space-y-6">
+        
+        <div class="text-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900">Analisador de Chat do WhatsApp</h1>
+            <p class="mt-2 text-gray-600">Carregue, filtre e analise suas conversas com filtros padrão e personalizados.</p>
+        </div>
+
+        <!-- Input Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Left Column: Chat Input & File Upload -->
+            <div class="space-y-4">
+                <div>
+                    <label for="chatInput" class="block text-sm font-medium text-gray-700 mb-1">1. Cole a conversa ou carregue um arquivo .txt</label>
+                    <textarea id="chatInput" rows="10" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500" placeholder="Cole o texto aqui..."></textarea>
+                    <input type="file" id="fileInput" class="hidden" accept=".txt">
+                    <button onclick="document.getElementById('fileInput').click()" class="mt-2 w-full bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition">
+                        Carregar Arquivo .txt
+                    </button>
+                </div>
+                 <div>
+                    <label for="nameInput" class="block text-sm font-medium text-gray-700 mb-1">2. Digite o(s) nome(s) exato(s)</label>
+                    <input type="text" id="nameInput" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500" placeholder="Ex: Maria, João">
+                    <p class="text-xs text-gray-500 mt-1">Use vírgula para separar múltiplos nomes.</p>
+                </div>
+            </div>
+            <!-- Right Column: Filter Options -->
+            <div class="space-y-4">
+                <div>
+                    <label for="customFilterInput" class="block text-sm font-medium text-gray-700 mb-1">3. Filtros Personalizados (Opcional)</label>
+                    <input type="text" id="customFilterInput" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500" placeholder="Ex: promoção, sorteio, bom dia">
+                    <p class="text-xs text-gray-500 mt-1">Use vírgula para separar palavras ou frases.</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">4. Filtrar por Data (Opcional)</h3>
+                    <div class="flex items-center space-x-2">
+                        <input type="date" id="startDate" class="w-full p-2 border border-gray-300 rounded-lg">
+                        <span class="text-gray-600">até</span>
+                        <input type="date" id="endDate" class="w-full p-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="messageArea" class="text-center text-red-500 font-medium h-6"></div>
+
+        <div class="text-center">
+            <button onclick="filterChat()" class="w-full md:w-auto bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105">
+                Analisar Conversa
+            </button>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsContainer" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t">
+            <!-- Messages -->
+            <div class="md:col-span-2 space-y-2">
+                <div class="flex justify-between items-center">
+                     <h2 class="text-xl font-bold text-gray-900">Mensagens Filtradas:</h2>
+                     <div class="flex space-x-2">
+                        <button id="copyButton" onclick="copyResults()" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Copiar</button>
+                        <button id="downloadButton" onclick="downloadResults()" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 transition">Baixar .txt</button>
+                     </div>
+                </div>
+                <div id="results" class="w-full h-80 overflow-y-auto bg-gray-50 p-4 border border-gray-200 rounded-lg"></div>
+            </div>
+            <!-- Stats -->
+            <div class="space-y-4">
+                 <h2 class="text-xl font-bold text-gray-900">Estatísticas:</h2>
+                 <div id="stats" class="bg-gray-50 p-4 border border-gray-200 rounded-lg space-y-3">
+                    <p><strong>Total de Mensagens:</strong> <span id="msgCount">0</span></p>
+                    <p><strong>Total de Palavras:</strong> <span id="wordCount">0</span></p>
+                    <p><strong>Total de Caracteres:</strong> <span id="charCount">0</span></p>
+                    <div>
+                        <p><strong>Top 5 Palavras:</strong></p>
+                        <ol id="topWords" class="list-decimal list-inside text-gray-700"></ol>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- EVENT LISTENERS ---
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('chatInput').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        // --- MAIN FUNCTION ---
+        function filterChat() {
+            // Get inputs
+            const chatText = document.getElementById('chatInput').value;
+            const namesToFilter = document.getElementById('nameInput').value.trim().toLowerCase().split(',').map(name => name.trim()).filter(name => name);
+            const customFilters = document.getElementById('customFilterInput').value.trim().toLowerCase().split(',').map(f => f.trim()).filter(f => f);
+            const startDateValue = document.getElementById('startDate').value;
+            const endDateValue = document.getElementById('endDate').value;
+            
+            // Get UI elements
+            const resultsDiv = document.getElementById('results');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const messageArea = document.getElementById('messageArea');
+            
+            messageArea.textContent = '';
+            if (!chatText || namesToFilter.length === 0) {
+                messageArea.textContent = 'Por favor, cole a conversa e digite pelo menos um nome.';
+                return;
+            }
+
+            // Regex patterns for default filters
+            const kkkkRegex = /^k{5,}$/i;
+            const hahahaRegex = /(ha){3,}/i;
+            const linkRegex = /(https?:\/\/[^\s]+)/g;
+            const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+            const messageRegex = /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),\s(\d{1,2}:\d{2}:\d{2})\]\s(.*?):\s(.*)/;
+            
+            let filteredMessages = [];
+            const lines = chatText.split('\n');
+
+            const startDate = startDateValue ? parseDate(startDateValue) : null;
+            const endDate = endDateValue ? parseDate(endDateValue, true) : null;
+            
+            lines.forEach(line => {
+                const match = line.match(messageRegex);
+                if (!match) return;
+
+                const msgDateStr = match[1];
+                const sender = match[3].trim().toLowerCase();
+                let message = match[4].trim();
+
+                // Filter by name
+                if (!namesToFilter.includes(sender)) return;
+
+                // Filter by date
+                if (startDate && endDate) {
+                    const msgDate = parseDate(msgDateStr);
+                    if (!msgDate || msgDate < startDate || msgDate > endDate) return;
+                }
+
+                // Apply default filters
+                if (/áudio ocultado|figurinha omitida|imagem ocultada|vídeo omitido|documento omitido/.test(message.toLowerCase())) return;
+                if (/chamada de voz perdida|ligação de voz/.test(message.toLowerCase())) return;
+                if (message.toLowerCase().includes('mensagem encaminhada')) return;
+                if (kkkkRegex.test(message) || hahahaRegex.test(message)) return;
+                if (linkRegex.test(message)) return;
+                
+                // Apply custom filters
+                if (customFilters.length > 0) {
+                    const messageLower = message.toLowerCase();
+                    if (customFilters.some(filter => messageLower.includes(filter))) {
+                        return;
+                    }
+                }
+                
+                // Clean up message by removing emojis
+                message = message.replace(emojiRegex, '');
+                
+                if (message.trim().length === 0) return;
+                filteredMessages.push(message.trim());
+            });
+            
+            const finalText = filteredMessages.join('\n');
+            resultsDiv.textContent = finalText;
+            
+            if (finalText.length === 0) {
+                 resultsDiv.textContent = `Nenhuma mensagem encontrada para "${namesToFilter.join(', ')}" com os filtros aplicados.`;
+            }
+
+            // Update stats and show results
+            updateStats(filteredMessages);
+            resultsContainer.classList.remove('hidden');
+        }
+
+        // --- HELPER FUNCTIONS ---
+        function updateStats(messages) {
+            const text = messages.join(' ');
+            const words = text.toLowerCase().match(/\b(\w+)\b/g) || [];
+            
+            document.getElementById('msgCount').textContent = messages.length;
+            document.getElementById('wordCount').textContent = words.length;
+            document.getElementById('charCount').textContent = messages.join('\n').length;
+
+            // Word frequency
+            const stopWords = new Set(['de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'é', 'com', 'não', 'uma', 'os', 'no', 'na', 'por', 'mais', 'as', 'dos', 'como', 'mas', 'foi', 'ao', 'ele', 'das', 'tem', 'à', 'seu', 'sua', 'ou', 'ser', 'quando', 'muito', 'há', 'nos', 'já', 'está', 'eu', 'também', 'só', 'pelo', 'pela', 'até', 'isso', 'ela', 'entre', 'era', 'depois', 'sem', 'mesmo', 'aos', 'ter', 'seus', 'quem', 'nas', 'me', 'esse', 'eles', 'estão', 'você', 'tinha', 'foram', 'essa', 'num', 'nem', 'suas', 'meu', 'às', 'minha', 'numa', 'pelos', 'elas', 'havia', 'seja', 'qual', 'será', 'nós', 'tenho', 'lhe', 'deles', 'essas', 'esses', 'pelas', 'este', 'fosse', 'dele', 'tu', 'te', 'vocês', 'vos', 'lhes', 'meus', 'minhas', 'teu', 'tua', 'teus', 'tuas', 'nosso', 'nossa', 'nossos', 'nossas', 'dela', 'delas', 'esta', 'estes', 'estas', 'aquele', 'aquela', 'aqueles', 'aquelas', 'isto', 'aquilo', 'estou', 'está', 'estamos', 'estão', 'estive', 'esteve', 'estivemos', 'estiveram', 'estava', 'estávamos', 'estavam', 'estivera', 'estivéramos', 'esteja', 'estejamos', 'estejam', 'estivesse', 'estivéssemos', 'estivessem', 'estiver', 'estivermos', 'estiverem', 'hei', 'há', 'havemos', 'hão', 'houve', 'houvemos', 'houveram', 'houvera', 'houvéramos', 'haja', 'hajamos', 'hajam', 'houvesse', 'houvéssemos', 'houvessem', 'houver', 'houvermos', 'houverem', 'houverei', 'houverá', 'houveremos', 'houverão', 'houveria', 'houveríamos', 'houveriam', 'sou', 'somos', 'são', 'era', 'éramos', 'eram', 'fui', 'foi', 'fomos', 'foram', 'fora', 'fôramos', 'seja', 'sejamos', 'sejam', 'fosse', 'fôssemos', 'fossem', 'for', 'formos', 'forem', 'serei', 'será', 'seremos', 'serão', 'seria', 'seríamos', 'seriam']);
+            const wordFreq = {};
+            words.forEach(word => {
+                if (word.length > 2 && !stopWords.has(word) && isNaN(word)) {
+                    wordFreq[word] = (wordFreq[word] || 0) + 1;
+                }
+            });
+
+            const sortedWords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]);
+            const topWordsList = document.getElementById('topWords');
+            topWordsList.innerHTML = '';
+            sortedWords.slice(0, 5).forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item[0]} (${item[1]})`;
+                topWordsList.appendChild(li);
+            });
+        }
+
+        function copyResults() {
+            const resultsText = document.getElementById('results').textContent;
+            const copyButton = document.getElementById('copyButton');
+            const textArea = document.createElement("textarea");
+            textArea.value = resultsText;
+            textArea.style.position = "fixed"; textArea.style.top = "-9999px"; textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus(); textArea.select();
+            try {
+                document.execCommand('copy');
+                copyButton.textContent = 'Copiado!';
+                setTimeout(() => { copyButton.textContent = 'Copiar'; }, 2000);
+            } catch (err) {
+                console.error('Falha ao copiar: ', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function downloadResults() {
+            const text = document.getElementById('results').textContent;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const anchor = document.createElement('a');
+            anchor.download = 'conversa_filtrada.txt';
+            anchor.href = window.URL.createObjectURL(blob);
+            anchor.click();
+            window.URL.revokeObjectURL(anchor.href);
+        }
+
+        function parseDate(dateStr, endOfDay = false) {
+            // Handles both YYYY-MM-DD (from date input) and DD/MM/YYYY (from chat)
+            let parts;
+            if (dateStr.includes('/')) {
+                parts = dateStr.split('/'); // DD/MM/YYYY
+                if (parts.length !== 3) return null;
+                const date = new Date(parts[2], parts[1] - 1, parts[0]);
+                return date;
+            } else {
+                parts = dateStr.split('-'); // YYYY-MM-DD
+                if (parts.length !== 3) return null;
+                const date = new Date(parts[0], parts[1] - 1, parts[2]);
+                 if (endOfDay) {
+                    date.setHours(23, 59, 59, 999);
+                }
+                return date;
+            }
+        }
+    </script>
+</body>
+</html>
